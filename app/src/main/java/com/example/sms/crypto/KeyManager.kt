@@ -82,8 +82,9 @@ class KeyManager(private val context: Context) {
 
         val agreement = X25519Agreement()
         agreement.init(privateKey)
-        val sharedSecret = ByteArray(32)
-        agreement.calculateAgreement(otherPublicKey, sharedSecret)
-        return sharedSecret
+        val secretBigInt = agreement.calculateAgreement(otherPublicKey)
+        val bytes = secretBigInt.toByteArray()
+        return if (bytes.size >= 32) bytes.copyOfRange(bytes.size - 32, bytes.size)
+               else ByteArray(32 - bytes.size) + bytes
     }
 }
