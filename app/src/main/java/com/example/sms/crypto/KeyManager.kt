@@ -5,22 +5,15 @@ import android.content.SharedPreferences
 import android.util.Base64
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
-import org.bouncycastle.jce.provider.BouncyCastleProvider
-import java.security.KeyFactory
-import java.security.KeyPairGenerator
-import java.security.Security
-import java.security.spec.PKCS8EncodedKeySpec
-import java.security.spec.X509EncodedKeySpec
+import org.bouncycastle.crypto.agreement.X25519Agreement
+import org.bouncycastle.crypto.generators.X25519KeyPairGenerator
+import org.bouncycastle.crypto.params.X25519KeyGenerationParameters
+import org.bouncycastle.crypto.params.X25519PrivateKeyParameters
+import org.bouncycastle.crypto.params.X25519PublicKeyParameters
+import java.security.SecureRandom
 import java.util.UUID
-import javax.crypto.KeyAgreement
 
 class KeyManager(private val context: Context) {
-
-    init {
-        if (Security.getProvider(BouncyCastleProvider.PROVIDER_NAME) == null) {
-            Security.addProvider(BouncyCastleProvider())
-        }
-    }
 
     private val masterKey = MasterKey.Builder(context)
         .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
@@ -48,35 +41,24 @@ class KeyManager(private val context: Context) {
 
         val uuid = UUID.randomUUID().toString()
 
-        // Generate X25519 key pair
-        val x25519Kpg = KeyPairGenerator.getInstance("X25519", "BC")
-        val x25519Kp = x25519Kpg.generateKeyPair()
-        val x25519Private = Base64.encodeToString(
-            x25519Kp.private.encoded, Base64.NO_WRAP
-        )
-        val x25519Public = Base64.encodeToString(
-            x25519Kp.public.encoded, Base64.NO_WRAP
-        )
+        // Generate X25519 key pair using BC low-level API
+        val generator = X25519KeyPairGenerator()
+        generator.init(X25519KeyGenerationParameters(SecureRandom()))
+        val keyPair = generator.generateKeyPair()
 
-        // Generate Ed25519 key pair
-        val ed25519Kpg = KeyPairGenerator.getInstance("Ed25519", "BC")
-        val ed25519Kp = ed25519Kpg.generateKeyPair()
-        val ed25519Private = Base64.encodeToString(
-            ed25519Kp.private.encoded, Base64.NO_WRAP
-        )
-        val ed25519Public = Base64.encodeToString(
-            ed25519Kp.public.encoded, Base64.NO_WRAP
-        )
+        val privateKey = keyPair.private as X25519PrivateKeyParameters
+        val publicKey = keyPair.public as X25519PublicKeyParameters
+
+        val privateBytes = Base64.encodeToString(privateKey.encoded, Base64.NO_WRAP)
+        val publicBytes = Base64.encodeToString(publicKey.encoded, Base64.NO_WRAP)
 
         prefs.edit()
             .putString("uuid", uuid)
-            .putString("x25519_private", x25519Private)
-            .putString("x25519_public", x25519Public)
-            .putString("ed25519_private", ed25519Private)
-            .putString("ed25519_public", ed25519Public)
+            .putString("x25519_private", privateBytes)
+            .putString("x25519_public", publicBytes)
             .apply()
 
-        return Triple(uuid, "", x25519Public)
+        return Triple(uuid, "", publicBytes)
     }
 
     fun saveName(name: String) {
@@ -92,17 +74,16 @@ class KeyManager(private val context: Context) {
     fun getX25519PrivateKey(): String = prefs.getString("x25519_private", "") ?: ""
 
     fun computeSharedSecret(otherPublicKeyBase64: String): ByteArray {
-        val kf = KeyFactory.getInstance("X25519", "BC")
-
         val myPrivateBytes = Base64.decode(getX25519PrivateKey(), Base64.NO_WRAP)
-        val myPrivateKey = kf.generatePrivate(PKCS8EncodedKeySpec(myPrivateBytes))
-
         val otherPublicBytes = Base64.decode(otherPublicKeyBase64, Base64.NO_WRAP)
-        val otherPublicKey = kf.generatePublic(X509EncodedKeySpec(otherPublicBytes))
 
-        val ka = KeyAgreement.getInstance("X25519", "BC")
-        ka.init(myPrivateKey)
-        ka.doPhase(otherPublicKey, true)
-        return ka.generateSecret()
+        val privateKey = X25519PrivateKeyParameters(myPrivateBytes)
+        val otherPublicKey = X25519PublicKeyParameters(otherPublicBytes)
+
+        val agreement = X25519Agreement()
+        agreement.init(privateKey)
+        val sharedSecret = ByteArray(32)
+        agreement.calculateAgreement(otherPublicKey, sharedSecret)
+        return sharedSecret
     }
 }
