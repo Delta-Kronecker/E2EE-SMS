@@ -3,9 +3,9 @@ package com.example.sms
 import android.content.Intent
 import android.os.Bundle
 import android.widget.ArrayAdapter
+import android.widget.AutoCompleteTextView
 import android.widget.Button
 import android.widget.EditText
-import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -14,7 +14,7 @@ import com.example.sms.crypto.KeyManager
 class SetupActivity : AppCompatActivity() {
 
     private lateinit var etName: EditText
-    private lateinit var spinnerCountryCode: Spinner
+    private lateinit var spinnerCountryCode: AutoCompleteTextView
     private lateinit var etPhone: EditText
     private lateinit var btnStart: Button
     private lateinit var tvMnemonic: TextView
@@ -26,26 +26,26 @@ class SetupActivity : AppCompatActivity() {
     private var mnemonic: String = ""
 
     private val countryCodes = arrayOf(
-        "+98 - Iran",
-        "+1 - USA",
-        "+44 - UK",
-        "+49 - Germany",
-        "+33 - France",
-        "+39 - Italy",
-        "+34 - Spain",
-        "+7 - Russia",
-        "+86 - China",
-        "+91 - India",
-        "+81 - Japan",
-        "+82 - South Korea",
-        "+55 - Brazil",
-        "+61 - Australia",
-        "+27 - South Africa",
-        "+90 - Turkey",
-        "+966 - Saudi Arabia",
-        "+971 - UAE",
-        "+20 - Egypt",
-        "+234 - Nigeria"
+        "+98  Iran",
+        "+1  USA",
+        "+44  UK",
+        "+49  Germany",
+        "+33  France",
+        "+39  Italy",
+        "+34  Spain",
+        "+7  Russia",
+        "+86  China",
+        "+91  India",
+        "+81  Japan",
+        "+82  South Korea",
+        "+55  Brazil",
+        "+61  Australia",
+        "+27  South Africa",
+        "+90  Turkey",
+        "+966  Saudi Arabia",
+        "+971  UAE",
+        "+20  Egypt",
+        "+234  Nigeria"
     )
 
     private val countryCodeValues = arrayOf(
@@ -75,15 +75,17 @@ class SetupActivity : AppCompatActivity() {
         btnConfirmBackup = findViewById(R.id.btnConfirmBackup)
         layoutBackup = findViewById(R.id.layoutBackup)
 
-        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, countryCodes)
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        spinnerCountryCode.adapter = adapter
-        spinnerCountryCode.setSelection(0)
+        val adapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, countryCodes)
+        spinnerCountryCode.setAdapter(adapter)
+        spinnerCountryCode.setText(countryCodes[0], false)
+
+        spinnerCountryCode.setOnItemClickListener { _, _, position, _ ->
+            spinnerCountryCode.setText(countryCodes[position], false)
+        }
 
         btnStart.setOnClickListener {
             val name = etName.text.toString().trim()
             val phone = etPhone.text.toString().trim()
-            val countryCode = countryCodeValues[spinnerCountryCode.selectedItemPosition]
 
             if (name.isEmpty()) {
                 etName.error = "Enter your name"
@@ -94,6 +96,9 @@ class SetupActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
 
+            val selectedText = spinnerCountryCode.text.toString()
+            val codeIndex = countryCodes.indexOf(selectedText)
+            val countryCode = if (codeIndex >= 0) countryCodeValues[codeIndex] else "+98"
             val fullPhone = "$countryCode$phone"
 
             val (uuid, _, _) = keyManager.getOrCreateIdentity()
