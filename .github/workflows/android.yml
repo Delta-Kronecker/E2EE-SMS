@@ -94,7 +94,7 @@ jobs:
             1. Download the APK below
             2. Enable "Install from unknown sources" on your device
             3. Install and follow setup
-          files: app/build/outputs/apk/release/app-release-unsigned.apk
+          files: app/build/outputs/apk/release/app-release.apk
           draft: false
           prerelease: false
         env:
