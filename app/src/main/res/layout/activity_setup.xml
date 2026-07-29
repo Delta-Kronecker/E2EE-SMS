@@ -81,7 +81,7 @@
                 android:inputType="none"
                 android:cursorVisible="false"
                 android:dropDownWidth="200dp"
-                android:dropDownBackground="#1E1E1E"
+                android:popupBackground="#1E1E1E"
                 android:textAlignment="viewStart"
                 android:gravity="center_vertical" />
 
