@@ -6,10 +6,11 @@ import android.util.Base64
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import org.bouncycastle.jce.provider.BouncyCastleProvider
-import java.math.BigInteger
 import java.security.KeyFactory
 import java.security.KeyPairGenerator
 import java.security.Security
+import java.security.spec.PKCS8EncodedKeySpec
+import java.security.spec.X509EncodedKeySpec
 import java.util.UUID
 import javax.crypto.KeyAgreement
 
@@ -94,23 +95,10 @@ class KeyManager(private val context: Context) {
         val kf = KeyFactory.getInstance("X25519", "BC")
 
         val myPrivateBytes = Base64.decode(getX25519PrivateKey(), Base64.NO_WRAP)
-        val myPrivateKey = kf.generatePrivate(
-            java.security.spec.XECPrivateKeySpec(
-                java.security.spec.NamedParameterSpec.X25519,
-                myPrivateBytes
-            )
-        )
+        val myPrivateKey = kf.generatePrivate(PKCS8EncodedKeySpec(myPrivateBytes))
 
         val otherPublicBytes = Base64.decode(otherPublicKeyBase64, Base64.NO_WRAP)
-        // X25519 public key is 32 bytes little-endian, convert to BigInteger
-        val reversed = otherPublicBytes.reversedArray()
-        val u = BigInteger(1, reversed)
-        val otherPublicKey = kf.generatePublic(
-            java.security.spec.XECPublicKeySpec(
-                java.security.spec.NamedParameterSpec.X25519,
-                u
-            )
-        )
+        val otherPublicKey = kf.generatePublic(X509EncodedKeySpec(otherPublicBytes))
 
         val ka = KeyAgreement.getInstance("X25519", "BC")
         ka.init(myPrivateKey)
