@@ -3,7 +3,6 @@ package com.example.sms.crypto
 import android.util.Base64
 import javax.crypto.Cipher
 import javax.crypto.Mac
-import javax.crypto.SecretKeySpec
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
 import java.security.SecureRandom
@@ -14,14 +13,11 @@ object CryptoEngine {
     private const val GCM_IV_LENGTH = 12
 
     fun encrypt(sharedSecret: ByteArray, plaintext: String): Triple<String, String, String> {
-        // Derive message key using HKDF-like construction
         val messageKey = deriveKey(sharedSecret)
 
-        // Generate random IV
         val iv = ByteArray(GCM_IV_LENGTH)
         SecureRandom().nextBytes(iv)
 
-        // Encrypt with AES-256-GCM
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         val keySpec = SecretKeySpec(messageKey, "AES")
         val gcmSpec = GCMParameterSpec(GCM_TAG_LENGTH, iv)
@@ -55,7 +51,6 @@ object CryptoEngine {
     }
 
     private fun deriveKey(sharedSecret: ByteArray): ByteArray {
-        // HMAC-SHA256 based key derivation
         val mac = Mac.getInstance("HmacSHA256")
         mac.init(SecretKeySpec("E2EE-SMS-KEY-DERIVATION".toByteArray(), "HmacSHA256"))
         return mac.doFinal(sharedSecret)
