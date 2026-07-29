@@ -22,7 +22,6 @@ import androidx.recyclerview.widget.RecyclerView
 import com.example.sms.crypto.CryptoEngine
 import com.example.sms.crypto.KeyManager
 import com.example.sms.db.AppDatabase
-import com.example.sms.model.Contact
 import com.example.sms.model.Message
 import com.google.android.material.appbar.MaterialToolbar
 import kotlinx.coroutines.CoroutineScope
@@ -38,7 +37,6 @@ class ChatActivity : AppCompatActivity() {
     private lateinit var etMessage: EditText
     private lateinit var btnSend: ImageButton
     private lateinit var tvEmpty: TextView
-    private lateinit var tvEncryptedBadge: TextView
     private val messages = mutableListOf<Message>()
     private lateinit var chatAdapter: ChatMessageAdapter
     private var contactUuid: String = ""
@@ -48,8 +46,8 @@ class ChatActivity : AppCompatActivity() {
 
     companion object {
         private const val PERMISSION_REQUEST_SEND_SMS = 101
-        private const val SMS_SENT_ACTION = "SMS_SENT"
-        private const val SMS_DELIVERED_ACTION = "SMS_DELIVERED"
+        private const val SMS_SENT_ACTION = "SMS_SENT_ACTION"
+        private const val SMS_DELIVERED_ACTION = "SMS_DELIVERED_ACTION"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -145,7 +143,6 @@ class ChatActivity : AppCompatActivity() {
                 return@launch
             }
 
-            // Get shared secret
             val sharedPrefs = getSharedPreferences("shared_secrets", MODE_PRIVATE)
             val encodedSecret = sharedPrefs.getString(contactUuid, null)
             if (encodedSecret == null) {
@@ -157,28 +154,27 @@ class ChatActivity : AppCompatActivity() {
 
             val sharedSecret = android.util.Base64.decode(encodedSecret, android.util.Base64.NO_WRAP)
 
-            // Encrypt message
             val (iv, ciphertext, mac) = CryptoEngine.encrypt(sharedSecret, plaintext)
             val encryptedSms = CryptoEngine.formatEncryptedSms(keyManager.getUuid(), iv, ciphertext, mac)
 
-            // Save to local DB
-            db.messageDao().insertMessage(
+            val messageId = db.messageDao().insertMessage(
                 Message(
                     senderUuid = keyManager.getUuid(),
                     recipientUuid = contactUuid,
                     plaintext = plaintext,
-                    isSent = true
+                    isSent = true,
+                    deliveryStatus = 0
                 )
             )
 
             withContext(Dispatchers.Main) {
                 etMessage.text.clear()
-                sendSmsByPhoneNumber(contact.phoneNumber, encryptedSms)
+                sendSmsByPhoneNumber(contact.phoneNumber, encryptedSms, messageId)
             }
         }
     }
 
-    private fun sendSmsByPhoneNumber(phoneNumber: String, message: String) {
+    private fun sendSmsByPhoneNumber(phoneNumber: String, message: String, messageId: Long) {
         if (phoneNumber.isEmpty()) {
             Toast.makeText(this, "No phone number for this contact", Toast.LENGTH_SHORT).show()
             return
@@ -193,30 +189,55 @@ class ChatActivity : AppCompatActivity() {
             }
 
             val sentIntent = PendingIntent.getBroadcast(
-                this, 0, Intent(SMS_SENT_ACTION),
-                PendingIntent.FLAG_IMMUTABLE
+                this, messageId.toInt(), Intent(SMS_SENT_ACTION),
+                PendingIntent.FLAG_MUTABLE
             )
 
             val deliveredIntent = PendingIntent.getBroadcast(
-                this, 0, Intent(SMS_DELIVERED_ACTION),
-                PendingIntent.FLAG_IMMUTABLE
+                this, messageId.toInt() + 100000, Intent(SMS_DELIVERED_ACTION),
+                PendingIntent.FLAG_MUTABLE
             )
 
-            // Split message if too long
             val parts = smsManager.divideMessage(message)
-            smsManager.sendMultipartTextMessage(phoneNumber, null, parts, ArrayList(listOf(sentIntent)), ArrayList(listOf(deliveredIntent)))
+            val sentIntents = ArrayList(parts.mapIndexed { index, _ ->
+                PendingIntent.getBroadcast(
+                    this, messageId.toInt() + index, Intent(SMS_SENT_ACTION),
+                    PendingIntent.FLAG_MUTABLE
+                )
+            })
+            val deliveredIntents = ArrayList(parts.mapIndexed { index, _ ->
+                PendingIntent.getBroadcast(
+                    this, messageId.toInt() + 100000 + index, Intent(SMS_DELIVERED_ACTION),
+                    PendingIntent.FLAG_MUTABLE
+                )
+            })
+
+            smsManager.sendMultipartTextMessage(phoneNumber, null, parts, sentIntents, deliveredIntents)
 
             val sentReceiver = object : BroadcastReceiver() {
                 override fun onReceive(context: Context?, intent: Intent?) {
-                    if (resultCode == RESULT_OK) {
-                        Toast.makeText(this@ChatActivity, "Message sent", Toast.LENGTH_SHORT).show()
-                    } else {
-                        Toast.makeText(this@ChatActivity, "Failed to send", Toast.LENGTH_SHORT).show()
+                    CoroutineScope(Dispatchers.IO).launch {
+                        if (resultCode == RESULT_OK) {
+                            db.messageDao().updateDeliveryStatus(messageId, 1)
+                        } else {
+                            db.messageDao().updateDeliveryStatus(messageId, 3)
+                        }
+                    }
+                }
+            }
+
+            val deliveredReceiver = object : BroadcastReceiver() {
+                override fun onReceive(context: Context?, intent: Intent?) {
+                    CoroutineScope(Dispatchers.IO).launch {
+                        if (resultCode == RESULT_OK) {
+                            db.messageDao().updateDeliveryStatus(messageId, 2)
+                        }
                     }
                 }
             }
 
             registerReceiver(sentReceiver, IntentFilter(SMS_SENT_ACTION), RECEIVER_NOT_EXPORTED)
+            registerReceiver(deliveredReceiver, IntentFilter(SMS_DELIVERED_ACTION), RECEIVER_NOT_EXPORTED)
 
         } catch (e: Exception) {
             Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_LONG).show()

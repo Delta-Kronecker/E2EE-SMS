@@ -4,19 +4,21 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical">
+    android:orientation="vertical"
+    android:background="#121212">
 
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content">
+        android:layout_height="wrap_content"
+        android:background="#1E1E1E">
 
         <com.google.android.material.appbar.MaterialToolbar
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
-            android:background="@color/primary"
-            app:title="Messages"
-            app:titleTextColor="@android:color/white" />
+            android:background="#1E1E1E"
+            app:title="E2EE-SMS"
+            app:titleTextColor="#FFFFFF" />
 
     </com.google.android.material.appbar.AppBarLayout>
 
@@ -24,7 +26,8 @@
         android:id="@+id/recyclerView"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1" />
+        android:layout_weight="1"
+        android:background="#121212" />
 
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fabCompose"
@@ -34,6 +37,7 @@
         android:layout_margin="16dp"
         android:src="@android:drawable/ic_menu_edit"
         android:contentDescription="New message"
-        app:tint="@android:color/white" />
+        app:backgroundTint="#BB86FC"
+        app:tint="#000000" />
 
 </LinearLayout>

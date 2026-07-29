@@ -3,17 +3,19 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical">
+    android:orientation="vertical"
+    android:background="#121212">
 
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content">
+        android:layout_height="wrap_content"
+        android:background="#1E1E1E">
 
         <com.google.android.material.appbar.MaterialToolbar
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
-            android:background="@color/primary"
+            android:background="#1E1E1E"
             android:elevation="4dp" />
 
     </com.google.android.material.appbar.AppBarLayout>
@@ -25,7 +27,7 @@
         android:layout_weight="1"
         android:gravity="center"
         android:text="No messages yet"
-        android:textColor="@android:color/darker_gray"
+        android:textColor="#808080"
         android:textSize="16sp"
         android:visibility="gone" />
 
@@ -35,14 +37,15 @@
         android:layout_height="0dp"
         android:layout_weight="1"
         android:padding="8dp"
-        android:clipToPadding="false" />
+        android:clipToPadding="false"
+        android:background="#121212" />
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:padding="8dp"
-        android:background="@android:color/white"
+        android:background="#1E1E1E"
         android:elevation="8dp"
         android:gravity="center_vertical">
 
@@ -52,9 +55,11 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:hint="Type a message..."
+            android:textColor="#FFFFFF"
+            android:textColorHint="#808080"
             android:inputType="text"
             android:maxLines="4"
-            android:background="@drawable/input_background"
+            android:background="@drawable/input_background_dark"
             android:padding="12dp"
             android:layout_marginEnd="8dp" />
 

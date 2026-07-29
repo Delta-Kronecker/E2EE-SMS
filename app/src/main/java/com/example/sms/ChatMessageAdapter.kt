@@ -22,6 +22,7 @@ class ChatMessageAdapter(
         val tvBody: TextView = view.findViewById(R.id.tvSentBody)
         val tvTime: TextView = view.findViewById(R.id.tvSentTime)
         val tvEncrypted: TextView = view.findViewById(R.id.tvEncrypted)
+        val tvDeliveryStatus: TextView = view.findViewById(R.id.tvDeliveryStatus)
     }
 
     class ReceivedMessageViewHolder(view: View) : RecyclerView.ViewHolder(view) {
@@ -56,6 +57,16 @@ class ChatMessageAdapter(
                 holder.tvBody.text = message.plaintext
                 holder.tvTime.text = timeText
                 holder.tvEncrypted.visibility = View.VISIBLE
+                holder.tvDeliveryStatus.visibility = View.VISIBLE
+                holder.tvDeliveryStatus.text = when (message.deliveryStatus) {
+                    1 -> "✓"
+                    2 -> "✓✓"
+                    3 -> "✓✓"
+                    else -> "⏳"
+                }
+                holder.tvDeliveryStatus.setTextColor(
+                    if (message.deliveryStatus >= 2) 0xFF03DAC5.toInt() else 0xFF808080.toInt()
+                )
             }
             is ReceivedMessageViewHolder -> {
                 holder.tvBody.text = message.plaintext

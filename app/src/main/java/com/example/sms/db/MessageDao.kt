@@ -10,7 +10,10 @@ interface MessageDao {
     fun getMessagesForContact(contactUuid: String): Flow<List<Message>>
 
     @Insert
-    suspend fun insertMessage(message: Message)
+    suspend fun insertMessage(message: Message): Long
+
+    @Query("UPDATE messages SET deliveryStatus = :status WHERE id = :messageId")
+    suspend fun updateDeliveryStatus(messageId: Long, status: Int)
 
     @Query("DELETE FROM messages WHERE senderUuid = :contactUuid OR recipientUuid = :contactUuid")
     suspend fun deleteMessagesForContact(contactUuid: String)

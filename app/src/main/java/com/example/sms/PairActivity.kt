@@ -7,7 +7,6 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.example.sms.crypto.KeyManager
 import com.example.sms.crypto.PairingManager
@@ -45,11 +44,11 @@ class PairActivity : AppCompatActivity() {
         etPairingInput = findViewById(R.id.etPairingInput)
         btnImport = findViewById(R.id.btnImport)
 
-        // Generate my pairing string
         val uuid = keyManager.getUuid()
         val name = keyManager.getName()
         val publicKey = keyManager.getPublicKey()
-        val pairingString = PairingManager.createPairingString(uuid, name, publicKey)
+        val phoneNumber = keyManager.getPhoneNumber()
+        val pairingString = PairingManager.createPairingString(uuid, name, publicKey, phoneNumber)
         tvMyPairing.text = pairingString
 
         btnCopy.setOnClickListener {
@@ -77,24 +76,23 @@ class PairActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
 
-            // Compute shared secret
             val sharedSecret = keyManager.computeSharedSecret(data.publicKey)
 
-            // Save contact
             CoroutineScope(Dispatchers.IO).launch {
                 db.contactDao().insertContact(
                     Contact(
                         uuid = data.uuid,
                         name = data.name,
-                        publicKey = data.publicKey
+                        publicKey = data.publicKey,
+                        phoneNumber = data.phoneNumber
                     )
                 )
 
-                // Store shared secret in encrypted prefs
                 val sharedPrefs = getSharedPreferences("shared_secrets", MODE_PRIVATE)
-                val editor = sharedPrefs.edit()
-                editor.putString(data.uuid, android.util.Base64.encodeToString(sharedSecret, android.util.Base64.NO_WRAP))
-                editor.apply()
+                sharedPrefs.edit().putString(
+                    data.uuid,
+                    android.util.Base64.encodeToString(sharedSecret, android.util.Base64.NO_WRAP)
+                ).apply()
 
                 runOnUiThread {
                     Toast.makeText(this@PairActivity, "Paired with ${data.name}!", Toast.LENGTH_SHORT).show()
@@ -103,7 +101,6 @@ class PairActivity : AppCompatActivity() {
             }
         }
 
-        // Tab switching
         tabLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
             override fun onTabSelected(tab: TabLayout.Tab?) {
                 when (tab?.position) {

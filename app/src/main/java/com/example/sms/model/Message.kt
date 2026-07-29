@@ -11,5 +11,6 @@ data class Message(
     val recipientUuid: String,
     val plaintext: String,
     val timestamp: Long = System.currentTimeMillis(),
-    val isSent: Boolean
+    val isSent: Boolean,
+    val deliveryStatus: Int = 0 // 0=pending, 1=sent, 2=delivered, 3=failed
 )

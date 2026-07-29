@@ -42,7 +42,6 @@ class KeyManager(private val context: Context) {
 
         val uuid = UUID.randomUUID().toString()
 
-        // Generate EC key pair using standard JCE (works on all Android versions)
         val kpg = KeyPairGenerator.getInstance("EC")
         kpg.initialize(ECGenParameterSpec("secp256r1"), SecureRandom())
         val keyPair = kpg.generateKeyPair()
@@ -63,9 +62,15 @@ class KeyManager(private val context: Context) {
         prefs.edit().putString("name", name).apply()
     }
 
+    fun savePhoneNumber(phone: String) {
+        prefs.edit().putString("phone", phone).apply()
+    }
+
     fun getUuid(): String = prefs.getString("uuid", "") ?: ""
 
     fun getName(): String = prefs.getString("name", "") ?: ""
+
+    fun getPhoneNumber(): String = prefs.getString("phone", "") ?: ""
 
     fun getPublicKey(): String = prefs.getString("ec_public", "") ?: ""
 

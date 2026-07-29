@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 import com.example.sms.model.Contact
 import com.example.sms.model.Message
 
-@Database(entities = [Contact::class, Message::class], version = 1, exportSchema = false)
+@Database(entities = [Contact::class, Message::class], version = 2, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun contactDao(): ContactDao
@@ -23,7 +23,7 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "e2ee_sms_database"
-                ).build()
+                ).fallbackToDestructiveMigration().build()
                 INSTANCE = instance
                 instance
             }
