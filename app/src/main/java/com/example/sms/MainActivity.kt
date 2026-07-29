@@ -19,7 +19,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var recyclerView: RecyclerView
     private lateinit var fab: FloatingActionButton
-    private val messages = mutableListOf<SmsMessage>()
+    private val conversations = mutableListOf<Conversation>()
     private lateinit var adapter: ConversationAdapter
 
     companion object {
@@ -33,9 +33,9 @@ class MainActivity : AppCompatActivity() {
         recyclerView = findViewById(R.id.recyclerView)
         fab = findViewById(R.id.fabCompose)
 
-        adapter = ConversationAdapter(messages) { message ->
-            val intent = Intent(this, ComposeActivity::class.java)
-            intent.putExtra("address", message.address)
+        adapter = ConversationAdapter(conversations) { conversation ->
+            val intent = Intent(this, ChatActivity::class.java)
+            intent.putExtra("address", conversation.address)
             startActivity(intent)
         }
 
@@ -43,7 +43,7 @@ class MainActivity : AppCompatActivity() {
         recyclerView.adapter = adapter
 
         fab.setOnClickListener {
-            val intent = Intent(this, ComposeActivity::class.java)
+            val intent = Intent(this, ChatActivity::class.java)
             startActivity(intent)
         }
 
@@ -53,7 +53,7 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         if (hasPermissions()) {
-            loadMessages()
+            loadConversations()
         }
     }
 
@@ -72,7 +72,7 @@ class MainActivity : AppCompatActivity() {
         if (missing.isNotEmpty()) {
             ActivityCompat.requestPermissions(this, missing.toTypedArray(), PERMISSION_REQUEST_SMS)
         } else {
-            loadMessages()
+            loadConversations()
         }
     }
 
@@ -82,9 +82,9 @@ class MainActivity : AppCompatActivity() {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == PERMISSION_REQUEST_SMS) {
             if (grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
-                loadMessages()
+                loadConversations()
             } else {
-                Toast.makeText(this, "مجوز دسترسی به SMS لازم است", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "SMS permission is required", Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -94,8 +94,8 @@ class MainActivity : AppCompatActivity() {
                 PackageManager.PERMISSION_GRANTED
     }
 
-    private fun loadMessages() {
-        messages.clear()
+    private fun loadConversations() {
+        conversations.clear()
 
         val uri: Uri = Telephony.Sms.CONTENT_URI
         val projection = arrayOf(
@@ -111,6 +111,8 @@ class MainActivity : AppCompatActivity() {
             Telephony.Sms.DATE + " DESC"
         )
 
+        val conversationMap = mutableMapOf<String, MutableList<SmsMessage>>()
+
         cursor?.use {
             val idIndex = it.getColumnIndex(Telephony.Sms._ID)
             val addressIndex = it.getColumnIndex(Telephony.Sms.ADDRESS)
@@ -120,7 +122,7 @@ class MainActivity : AppCompatActivity() {
 
             while (it.moveToNext()) {
                 val id = it.getLong(idIndex)
-                val address = it.getString(addressIndex) ?: "ناشناخته"
+                val address = it.getString(addressIndex) ?: "Unknown"
                 val body = it.getString(bodyIndex) ?: ""
                 val date = it.getLong(dateIndex)
                 val type = it.getInt(typeIndex)
@@ -128,10 +130,24 @@ class MainActivity : AppCompatActivity() {
                 val isSent = type == Telephony.Sms.MESSAGE_TYPE_SENT ||
                         type == Telephony.Sms.MESSAGE_TYPE_OUTBOX
 
-                messages.add(SmsMessage(id, address, body, date, isSent))
+                val message = SmsMessage(id, address, body, date, isSent)
+                conversationMap.getOrPut(address) { mutableListOf() }.add(message)
             }
         }
 
+        for ((address, messages) in conversationMap) {
+            val lastMessage = messages.first()
+            conversations.add(
+                Conversation(
+                    address = address,
+                    lastMessage = lastMessage.body,
+                    lastTimestamp = lastMessage.timestamp,
+                    messageCount = messages.size
+                )
+            )
+        }
+
+        conversations.sortByDescending { it.lastTimestamp }
         adapter.notifyDataSetChanged()
     }
 }

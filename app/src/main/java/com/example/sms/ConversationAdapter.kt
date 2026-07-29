@@ -9,32 +9,40 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 class ConversationAdapter(
-    private val messages: List<SmsMessage>,
-    private val onClick: (SmsMessage) -> Unit
-) : RecyclerView.Adapter<ConversationAdapter.MessageViewHolder>() {
+    private val conversations: List<Conversation>,
+    private val onClick: (Conversation) -> Unit
+) : RecyclerView.Adapter<ConversationAdapter.ConversationViewHolder>() {
 
-    class MessageViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-        val tvAddress: TextView = view.findViewById(R.id.tvAddress)
-        val tvBody: TextView = view.findViewById(R.id.tvBody)
+    class ConversationViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        val tvName: TextView = view.findViewById(R.id.tvName)
+        val tvLastMessage: TextView = view.findViewById(R.id.tvLastMessage)
         val tvTime: TextView = view.findViewById(R.id.tvTime)
+        val tvCount: TextView = view.findViewById(R.id.tvCount)
     }
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MessageViewHolder {
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ConversationViewHolder {
         val view = LayoutInflater.from(parent.context)
-            .inflate(R.layout.item_message, parent, false)
-        return MessageViewHolder(view)
+            .inflate(R.layout.item_conversation, parent, false)
+        return ConversationViewHolder(view)
     }
 
-    override fun onBindViewHolder(holder: MessageViewHolder, position: Int) {
-        val message = messages[position]
-        holder.tvAddress.text = message.address
-        holder.tvBody.text = message.body
+    override fun onBindViewHolder(holder: ConversationViewHolder, position: Int) {
+        val conversation = conversations[position]
+        holder.tvName.text = conversation.address
+        holder.tvLastMessage.text = conversation.lastMessage
 
         val sdf = SimpleDateFormat("HH:mm", Locale.getDefault())
-        holder.tvTime.text = sdf.format(Date(message.timestamp))
+        holder.tvTime.text = sdf.format(Date(conversation.lastTimestamp))
 
-        holder.itemView.setOnClickListener { onClick(message) }
+        if (conversation.messageCount > 1) {
+            holder.tvCount.text = conversation.messageCount.toString()
+            holder.tvCount.visibility = View.VISIBLE
+        } else {
+            holder.tvCount.visibility = View.GONE
+        }
+
+        holder.itemView.setOnClickListener { onClick(conversation) }
     }
 
-    override fun getItemCount() = messages.size
+    override fun getItemCount() = conversations.size
 }

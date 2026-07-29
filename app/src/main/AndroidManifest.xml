@@ -21,7 +21,7 @@
             </intent-filter>
         </activity>
 
-        <activity android:name=".ComposeActivity" />
+        <activity android:name=".ChatActivity" />
 
         <receiver
             android:name=".SmsReceiver"

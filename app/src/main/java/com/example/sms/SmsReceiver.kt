@@ -15,11 +15,10 @@ class SmsReceiver : BroadcastReceiver() {
             for (sms in messages) {
                 val sender = sms.displayOriginatingAddress
                 val body = sms.displayMessageBody
-                val timestamp = sms.timestampMillis
 
                 Toast.makeText(
                     context,
-                    "پیام جدید از $sender:\n$body",
+                    "New message from $sender:\n$body",
                     Toast.LENGTH_LONG
                 ).show()
             }
