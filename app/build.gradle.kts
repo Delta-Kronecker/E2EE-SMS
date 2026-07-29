@@ -48,9 +48,6 @@ dependencies {
     kapt("androidx.room:room-compiler:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
 
-    // Bouncy Castle (cryptography)
-    implementation("org.bouncycastle:bcprov-jdk18on:1.77")
-
     // Security Crypto (EncryptedSharedPreferences)
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
 

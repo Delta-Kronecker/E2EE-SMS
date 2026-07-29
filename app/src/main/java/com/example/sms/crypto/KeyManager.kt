@@ -5,13 +5,14 @@ import android.content.SharedPreferences
 import android.util.Base64
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
-import org.bouncycastle.crypto.agreement.X25519Agreement
-import org.bouncycastle.crypto.generators.X25519KeyPairGenerator
-import org.bouncycastle.crypto.params.X25519KeyGenerationParameters
-import org.bouncycastle.crypto.params.X25519PrivateKeyParameters
-import org.bouncycastle.crypto.params.X25519PublicKeyParameters
+import java.security.KeyFactory
+import java.security.KeyPairGenerator
 import java.security.SecureRandom
+import java.security.spec.ECGenParameterSpec
+import java.security.spec.PKCS8EncodedKeySpec
+import java.security.spec.X509EncodedKeySpec
 import java.util.UUID
+import javax.crypto.KeyAgreement
 
 class KeyManager(private val context: Context) {
 
@@ -35,27 +36,24 @@ class KeyManager(private val context: Context) {
             return Triple(
                 existingUuid,
                 prefs.getString("name", "")!!,
-                prefs.getString("x25519_public", "")!!
+                prefs.getString("ec_public", "")!!
             )
         }
 
         val uuid = UUID.randomUUID().toString()
 
-        // Generate X25519 key pair using BC low-level API
-        val generator = X25519KeyPairGenerator()
-        generator.init(X25519KeyGenerationParameters(SecureRandom()))
-        val keyPair = generator.generateKeyPair()
+        // Generate EC key pair using standard JCE (works on all Android versions)
+        val kpg = KeyPairGenerator.getInstance("EC")
+        kpg.initialize(ECGenParameterSpec("secp256r1"), SecureRandom())
+        val keyPair = kpg.generateKeyPair()
 
-        val privateKey = keyPair.private as X25519PrivateKeyParameters
-        val publicKey = keyPair.public as X25519PublicKeyParameters
-
-        val privateBytes = Base64.encodeToString(privateKey.encoded, Base64.NO_WRAP)
-        val publicBytes = Base64.encodeToString(publicKey.encoded, Base64.NO_WRAP)
+        val privateBytes = Base64.encodeToString(keyPair.private.encoded, Base64.NO_WRAP)
+        val publicBytes = Base64.encodeToString(keyPair.public.encoded, Base64.NO_WRAP)
 
         prefs.edit()
             .putString("uuid", uuid)
-            .putString("x25519_private", privateBytes)
-            .putString("x25519_public", publicBytes)
+            .putString("ec_private", privateBytes)
+            .putString("ec_public", publicBytes)
             .apply()
 
         return Triple(uuid, "", publicBytes)
@@ -69,22 +67,20 @@ class KeyManager(private val context: Context) {
 
     fun getName(): String = prefs.getString("name", "") ?: ""
 
-    fun getX25519PublicKey(): String = prefs.getString("x25519_public", "") ?: ""
-
-    fun getX25519PrivateKey(): String = prefs.getString("x25519_private", "") ?: ""
+    fun getPublicKey(): String = prefs.getString("ec_public", "") ?: ""
 
     fun computeSharedSecret(otherPublicKeyBase64: String): ByteArray {
-        val myPrivateBytes = Base64.decode(getX25519PrivateKey(), Base64.NO_WRAP)
+        val kf = KeyFactory.getInstance("EC")
+
+        val myPrivateBytes = Base64.decode(prefs.getString("ec_private", "")!!, Base64.NO_WRAP)
+        val myPrivateKey = kf.generatePrivate(PKCS8EncodedKeySpec(myPrivateBytes))
+
         val otherPublicBytes = Base64.decode(otherPublicKeyBase64, Base64.NO_WRAP)
+        val otherPublicKey = kf.generatePublic(X509EncodedKeySpec(otherPublicBytes))
 
-        val privateKey = X25519PrivateKeyParameters(myPrivateBytes)
-        val otherPublicKey = X25519PublicKeyParameters(otherPublicBytes)
-
-        val agreement = X25519Agreement()
-        agreement.init(privateKey)
-        val secretBigInt = agreement.calculateAgreement(otherPublicKey)
-        val bytes = secretBigInt.toByteArray()
-        return if (bytes.size >= 32) bytes.copyOfRange(bytes.size - 32, bytes.size)
-               else ByteArray(32 - bytes.size) + bytes
+        val ka = KeyAgreement.getInstance("ECDH")
+        ka.init(myPrivateKey)
+        ka.doPhase(otherPublicKey, true)
+        return ka.generateSecret()
     }
 }

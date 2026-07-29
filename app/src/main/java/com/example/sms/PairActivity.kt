@@ -48,7 +48,7 @@ class PairActivity : AppCompatActivity() {
         // Generate my pairing string
         val uuid = keyManager.getUuid()
         val name = keyManager.getName()
-        val publicKey = keyManager.getX25519PublicKey()
+        val publicKey = keyManager.getPublicKey()
         val pairingString = PairingManager.createPairingString(uuid, name, publicKey)
         tvMyPairing.text = pairingString
 
