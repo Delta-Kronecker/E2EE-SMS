@@ -13,7 +13,7 @@
         android:theme="@style/Theme.SMS">
 
         <activity
-            android:name=".MainActivity"
+            android:name=".SetupActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -21,7 +21,17 @@
             </intent-filter>
         </activity>
 
-        <activity android:name=".ChatActivity" />
+        <activity
+            android:name=".MainActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".PairActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".ChatActivity"
+            android:exported="false" />
 
         <receiver
             android:name=".SmsReceiver"

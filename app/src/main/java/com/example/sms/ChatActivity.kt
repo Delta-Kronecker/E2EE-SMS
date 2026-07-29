@@ -7,11 +7,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
-import android.database.Cursor
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.provider.Telephony
 import android.telephony.SmsManager
 import android.widget.EditText
 import android.widget.ImageButton
@@ -22,7 +19,17 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.example.sms.crypto.CryptoEngine
+import com.example.sms.crypto.KeyManager
+import com.example.sms.db.AppDatabase
+import com.example.sms.model.Contact
+import com.example.sms.model.Message
 import com.google.android.material.appbar.MaterialToolbar
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class ChatActivity : AppCompatActivity() {
 
@@ -31,9 +38,13 @@ class ChatActivity : AppCompatActivity() {
     private lateinit var etMessage: EditText
     private lateinit var btnSend: ImageButton
     private lateinit var tvEmpty: TextView
-    private val messages = mutableListOf<SmsMessage>()
-    private lateinit var chatAdapter: ChatAdapter
-    private var address: String = ""
+    private lateinit var tvEncryptedBadge: TextView
+    private val messages = mutableListOf<Message>()
+    private lateinit var chatAdapter: ChatMessageAdapter
+    private var contactUuid: String = ""
+    private var contactName: String = ""
+    private lateinit var keyManager: KeyManager
+    private lateinit var db: AppDatabase
 
     companion object {
         private const val PERMISSION_REQUEST_SEND_SMS = 101
@@ -45,20 +56,24 @@ class ChatActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_chat)
 
+        keyManager = KeyManager(this)
+        db = AppDatabase.getDatabase(this)
+
         toolbar = findViewById(R.id.toolbar)
         recyclerView = findViewById(R.id.chatRecyclerView)
         etMessage = findViewById(R.id.etMessage)
         btnSend = findViewById(R.id.btnSend)
         tvEmpty = findViewById(R.id.tvEmpty)
 
-        address = intent.getStringExtra("address") ?: ""
+        contactUuid = intent.getStringExtra("contactUuid") ?: ""
+        contactName = intent.getStringExtra("contactName") ?: "Unknown"
 
-        toolbar.title = address
+        toolbar.title = contactName
         setSupportActionBar(toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         toolbar.setNavigationOnClickListener { finish() }
 
-        chatAdapter = ChatAdapter(messages)
+        chatAdapter = ChatMessageAdapter(messages, keyManager.getUuid())
         val layoutManager = LinearLayoutManager(this)
         layoutManager.stackFromEnd = true
         recyclerView.layoutManager = layoutManager
@@ -71,8 +86,8 @@ class ChatActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
 
-            val targetAddress = address.ifEmpty {
-                etMessage.text.toString().trim()
+            if (contactUuid.isEmpty()) {
+                Toast.makeText(this, "No contact selected", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
 
@@ -85,71 +100,90 @@ class ChatActivity : AppCompatActivity() {
                     PERMISSION_REQUEST_SEND_SMS
                 )
             } else {
-                sendSms(targetAddress, messageText)
+                sendMessage(messageText)
             }
         }
 
-        if (address.isNotEmpty()) {
+        if (contactUuid.isNotEmpty()) {
             loadMessages()
         } else {
-            tvEmpty.text = "Enter a phone number to start chatting"
+            tvEmpty.text = "Select a contact to start chatting"
             tvEmpty.visibility = TextView.VISIBLE
             recyclerView.visibility = RecyclerView.GONE
         }
     }
 
     private fun loadMessages() {
-        messages.clear()
+        CoroutineScope(Dispatchers.IO).launch {
+            db.messageDao().getMessagesForContact(contactUuid).collectLatest { messageList ->
+                withContext(Dispatchers.Main) {
+                    messages.clear()
+                    messages.addAll(messageList)
+                    chatAdapter.notifyDataSetChanged()
 
-        val uri: Uri = Telephony.Sms.CONTENT_URI
-        val projection = arrayOf(
-            Telephony.Sms._ID,
-            Telephony.Sms.ADDRESS,
-            Telephony.Sms.BODY,
-            Telephony.Sms.DATE,
-            Telephony.Sms.TYPE
-        )
-        val selection = "${Telephony.Sms.ADDRESS} = ?"
-        val selectionArgs = arrayOf(address)
-
-        val cursor: Cursor? = contentResolver.query(
-            uri, projection, selection, selectionArgs,
-            Telephony.Sms.DATE + " ASC"
-        )
-
-        cursor?.use {
-            val idIndex = it.getColumnIndex(Telephony.Sms._ID)
-            val bodyIndex = it.getColumnIndex(Telephony.Sms.BODY)
-            val dateIndex = it.getColumnIndex(Telephony.Sms.DATE)
-            val typeIndex = it.getColumnIndex(Telephony.Sms.TYPE)
-
-            while (it.moveToNext()) {
-                val id = it.getLong(idIndex)
-                val body = it.getString(bodyIndex) ?: ""
-                val date = it.getLong(dateIndex)
-                val type = it.getInt(typeIndex)
-
-                val isSent = type == Telephony.Sms.MESSAGE_TYPE_SENT ||
-                        type == Telephony.Sms.MESSAGE_TYPE_OUTBOX
-
-                messages.add(SmsMessage(id, address, body, date, isSent))
+                    if (messages.isNotEmpty()) {
+                        tvEmpty.visibility = TextView.GONE
+                        recyclerView.visibility = RecyclerView.VISIBLE
+                        recyclerView.scrollToPosition(messages.size - 1)
+                    } else {
+                        tvEmpty.text = "No messages yet"
+                        tvEmpty.visibility = TextView.VISIBLE
+                        recyclerView.visibility = RecyclerView.GONE
+                    }
+                }
             }
-        }
-
-        chatAdapter.notifyDataSetChanged()
-
-        if (messages.isNotEmpty()) {
-            tvEmpty.visibility = TextView.GONE
-            recyclerView.visibility = RecyclerView.VISIBLE
-            recyclerView.scrollToPosition(messages.size - 1)
-        } else {
-            tvEmpty.text = "No messages yet"
-            tvEmpty.visibility = TextView.VISIBLE
-            recyclerView.visibility = RecyclerView.GONE
         }
     }
 
-    private fun sendSms(targetAddress: String, message: String) {
+    private fun sendMessage(plaintext: String) {
+        CoroutineScope(Dispatchers.IO).launch {
+            val contact = db.contactDao().getContactByUuid(contactUuid)
+            if (contact == null) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@ChatActivity, "Contact not found", Toast.LENGTH_SHORT).show()
+                }
+                return@launch
+            }
+
+            // Get shared secret
+            val sharedPrefs = getSharedPreferences("shared_secrets", MODE_PRIVATE)
+            val encodedSecret = sharedPrefs.getString(contactUuid, null)
+            if (encodedSecret == null) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@ChatActivity, "No shared key. Re-pair required.", Toast.LENGTH_LONG).show()
+                }
+                return@launch
+            }
+
+            val sharedSecret = android.util.Base64.decode(encodedSecret, android.util.Base64.NO_WRAP)
+
+            // Encrypt message
+            val (iv, ciphertext, mac) = CryptoEngine.encrypt(sharedSecret, plaintext)
+            val encryptedSms = CryptoEngine.formatEncryptedSms(keyManager.getUuid(), iv, ciphertext, mac)
+
+            // Save to local DB
+            db.messageDao().insertMessage(
+                Message(
+                    senderUuid = keyManager.getUuid(),
+                    recipientUuid = contactUuid,
+                    plaintext = plaintext,
+                    isSent = true
+                )
+            )
+
+            withContext(Dispatchers.Main) {
+                etMessage.text.clear()
+                sendSmsByPhoneNumber(contact.phoneNumber, encryptedSms)
+            }
+        }
+    }
+
+    private fun sendSmsByPhoneNumber(phoneNumber: String, message: String) {
+        if (phoneNumber.isEmpty()) {
+            Toast.makeText(this, "No phone number for this contact", Toast.LENGTH_SHORT).show()
+            return
+        }
+
         try {
             val smsManager = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 getSystemService(SmsManager::class.java)
@@ -168,27 +202,21 @@ class ChatActivity : AppCompatActivity() {
                 PendingIntent.FLAG_IMMUTABLE
             )
 
-            smsManager.sendTextMessage(targetAddress, null, message, sentIntent, deliveredIntent)
+            // Split message if too long
+            val parts = smsManager.divideMessage(message)
+            smsManager.sendMultipartTextMessage(phoneNumber, null, parts, ArrayList(listOf(sentIntent)), ArrayList(listOf(deliveredIntent)))
 
             val sentReceiver = object : BroadcastReceiver() {
                 override fun onReceive(context: Context?, intent: Intent?) {
                     if (resultCode == RESULT_OK) {
-                        etMessage.text.clear()
-                        loadMessages()
+                        Toast.makeText(this@ChatActivity, "Message sent", Toast.LENGTH_SHORT).show()
                     } else {
-                        Toast.makeText(this@ChatActivity, "Failed to send message", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this@ChatActivity, "Failed to send", Toast.LENGTH_SHORT).show()
                     }
                 }
             }
 
-            val deliveredReceiver = object : BroadcastReceiver() {
-                override fun onReceive(context: Context?, intent: Intent?) {
-                    Toast.makeText(this@ChatActivity, "Message delivered", Toast.LENGTH_SHORT).show()
-                }
-            }
-
             registerReceiver(sentReceiver, IntentFilter(SMS_SENT_ACTION), RECEIVER_NOT_EXPORTED)
-            registerReceiver(deliveredReceiver, IntentFilter(SMS_DELIVERED_ACTION), RECEIVER_NOT_EXPORTED)
 
         } catch (e: Exception) {
             Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_LONG).show()
@@ -202,11 +230,11 @@ class ChatActivity : AppCompatActivity() {
         if (requestCode == PERMISSION_REQUEST_SEND_SMS) {
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 val messageText = etMessage.text.toString().trim()
-                if (messageText.isNotEmpty() && address.isNotEmpty()) {
-                    sendSms(address, messageText)
+                if (messageText.isNotEmpty() && contactUuid.isNotEmpty()) {
+                    sendMessage(messageText)
                 }
             } else {
-                Toast.makeText(this, "Send SMS permission is required", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "Send SMS permission required", Toast.LENGTH_LONG).show()
             }
         }
     }

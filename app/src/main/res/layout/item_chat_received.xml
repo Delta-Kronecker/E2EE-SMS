@@ -23,14 +23,30 @@
             android:textColor="@android:color/black"
             android:textSize="15sp" />
 
-        <TextView
-            android:id="@+id/tvReceivedTime"
+        <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textSize="11sp"
-            android:textColor="#888888"
+            android:orientation="horizontal"
             android:layout_gravity="end"
-            android:layout_marginTop="2dp" />
+            android:layout_marginTop="2dp"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:id="@+id/tvEncrypted"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🔒"
+                android:textSize="10sp"
+                android:layout_marginEnd="4dp" />
+
+            <TextView
+                android:id="@+id/tvReceivedTime"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="11sp"
+                android:textColor="#888888" />
+
+        </LinearLayout>
 
     </LinearLayout>
 
