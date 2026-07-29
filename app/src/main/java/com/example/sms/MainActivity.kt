@@ -87,8 +87,7 @@ class MainActivity : AppCompatActivity() {
         val permissions = arrayOf(
             Manifest.permission.READ_SMS,
             Manifest.permission.SEND_SMS,
-            Manifest.permission.RECEIVE_SMS,
-            Manifest.permission.READ_CONTACTS
+            Manifest.permission.RECEIVE_SMS
         )
 
         val missing = permissions.filter {

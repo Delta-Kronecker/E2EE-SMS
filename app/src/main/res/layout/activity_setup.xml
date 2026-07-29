@@ -58,10 +58,11 @@
             <Spinner
                 android:id="@+id/spinnerCountryCode"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_height="56dp"
                 android:background="@drawable/spinner_background"
                 android:padding="12dp"
-                android:layout_marginEnd="8dp" />
+                android:layout_marginEnd="8dp"
+                android:gravity="center" />
 
             <com.google.android.material.textfield.TextInputLayout
                 android:layout_width="0dp"
