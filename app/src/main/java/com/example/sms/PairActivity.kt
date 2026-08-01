@@ -60,7 +60,7 @@ class PairActivity : AppCompatActivity() {
 
         tabLayout = findViewById(R.id.tabLayout)
         layoutShow = findViewById(R.id.layoutShow)
-        layoutImport = findViewById(R.layoutImport)
+        layoutImport = findViewById(R.id.layoutImport)
         tvMyPairing = findViewById(R.id.tvMyPairing)
         ivQrCode = findViewById(R.id.ivQrCode)
         btnCopy = findViewById(R.id.btnCopy)
