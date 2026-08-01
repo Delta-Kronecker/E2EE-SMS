@@ -35,8 +35,8 @@
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|end"
         android:layout_margin="16dp"
-        android:src="@android:drawable/ic_menu_edit"
-        android:contentDescription="New message"
+        android:src="@drawable/ic_pair"
+        android:contentDescription="Pair device"
         app:backgroundTint="#BB86FC"
         app:tint="#000000" />
 

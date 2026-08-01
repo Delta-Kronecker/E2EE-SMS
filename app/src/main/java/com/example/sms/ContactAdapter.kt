@@ -16,7 +16,6 @@ class ContactAdapter(
 
     class ContactViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val tvName: TextView = view.findViewById(R.id.tvName)
-        val tvUuid: TextView = view.findViewById(R.id.tvUuid)
         val tvTime: TextView = view.findViewById(R.id.tvTime)
     }
 
@@ -29,7 +28,6 @@ class ContactAdapter(
     override fun onBindViewHolder(holder: ContactViewHolder, position: Int) {
         val contact = contacts[position]
         holder.tvName.text = contact.name
-        holder.tvUuid.text = contact.uuid.take(8) + "..."
         val sdf = SimpleDateFormat("MMM dd", Locale.getDefault())
         holder.tvTime.text = sdf.format(Date(contact.pairedAt))
 

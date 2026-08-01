@@ -19,29 +19,32 @@ class SmsReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context?, intent: Intent?) {
         if (context == null || intent?.action != Telephony.Sms.Intents.SMS_RECEIVED_ACTION) return
 
-        val messages = Telephony.Sms.Intents.getMessagesFromIntent(intent)
         val keyManager = KeyManager(context)
         val db = AppDatabase.getDatabase(context)
+
+        val messages = Telephony.Sms.Intents.getMessagesFromIntent(intent)
+        val senderBodies = mutableMapOf<String, StringBuilder>()
 
         for (sms in messages) {
             val sender = sms.displayOriginatingAddress ?: continue
             val body = sms.displayMessageBody ?: continue
+            senderBodies.getOrPut(sender) { StringBuilder() }.append(body)
+        }
 
-            // Check if this is an E2EE message
-            val encryptedData = CryptoEngine.parseEncryptedSms(body)
+        for ((sender, fullBodyBuilder) in senderBodies) {
+            val fullBody = fullBodyBuilder.toString()
+
+            val encryptedData = CryptoEngine.parseEncryptedSms(fullBody)
             if (encryptedData != null) {
-                // Find contact by UUID
                 CoroutineScope(Dispatchers.IO).launch {
                     val contact = db.contactDao().getContactByUuid(encryptedData.senderUuid)
                     if (contact != null) {
-                        // Get shared secret
                         val sharedPrefs = context.getSharedPreferences("shared_secrets", Context.MODE_PRIVATE)
                         val encodedSecret = sharedPrefs.getString(encryptedData.senderUuid, null)
 
                         if (encodedSecret != null) {
                             val sharedSecret = Base64.decode(encodedSecret, Base64.NO_WRAP)
 
-                            // Decrypt
                             val plaintext = CryptoEngine.decrypt(
                                 sharedSecret,
                                 encryptedData.iv,
@@ -49,7 +52,6 @@ class SmsReceiver : BroadcastReceiver() {
                             )
 
                             if (plaintext != null) {
-                                // Save decrypted message
                                 db.messageDao().insertMessage(
                                     Message(
                                         senderUuid = encryptedData.senderUuid,
@@ -77,7 +79,6 @@ class SmsReceiver : BroadcastReceiver() {
                             }
                         }
                     } else {
-                        // Unknown sender
                         CoroutineScope(Dispatchers.Main).launch {
                             Toast.makeText(
                                 context,
@@ -88,12 +89,13 @@ class SmsReceiver : BroadcastReceiver() {
                     }
                 }
             } else {
-                // Regular SMS (not encrypted)
-                Toast.makeText(
-                    context,
-                    "New message from $sender:\n$body",
-                    Toast.LENGTH_LONG
-                ).show()
+                CoroutineScope(Dispatchers.Main).launch {
+                    Toast.makeText(
+                        context,
+                        "New message from $sender:\n$fullBody",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
             }
         }
     }

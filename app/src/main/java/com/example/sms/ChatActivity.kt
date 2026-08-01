@@ -46,8 +46,6 @@ class ChatActivity : AppCompatActivity() {
 
     companion object {
         private const val PERMISSION_REQUEST_SEND_SMS = 101
-        private const val SMS_SENT_ACTION = "SMS_SENT_ACTION"
-        private const val SMS_DELIVERED_ACTION = "SMS_DELIVERED_ACTION"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -188,26 +186,19 @@ class ChatActivity : AppCompatActivity() {
                 SmsManager.getDefault()
             }
 
-            val sentIntent = PendingIntent.getBroadcast(
-                this, messageId.toInt(), Intent(SMS_SENT_ACTION),
-                PendingIntent.FLAG_MUTABLE
-            )
-
-            val deliveredIntent = PendingIntent.getBroadcast(
-                this, messageId.toInt() + 100000, Intent(SMS_DELIVERED_ACTION),
-                PendingIntent.FLAG_MUTABLE
-            )
-
             val parts = smsManager.divideMessage(message)
+            val sentAction = "SMS_SENT_$messageId"
+            val deliveredAction = "SMS_DELIVERED_$messageId"
+
             val sentIntents = ArrayList(parts.mapIndexed { index, _ ->
                 PendingIntent.getBroadcast(
-                    this, messageId.toInt() + index, Intent(SMS_SENT_ACTION),
+                    this, messageId.toInt() + index, Intent(sentAction),
                     PendingIntent.FLAG_MUTABLE
                 )
             })
             val deliveredIntents = ArrayList(parts.mapIndexed { index, _ ->
                 PendingIntent.getBroadcast(
-                    this, messageId.toInt() + 100000 + index, Intent(SMS_DELIVERED_ACTION),
+                    this, messageId.toInt() + 100000 + index, Intent(deliveredAction),
                     PendingIntent.FLAG_MUTABLE
                 )
             })
@@ -223,6 +214,7 @@ class ChatActivity : AppCompatActivity() {
                             db.messageDao().updateDeliveryStatus(messageId, 3)
                         }
                     }
+                    try { unregisterReceiver(this) } catch (_: Exception) {}
                 }
             }
 
@@ -233,11 +225,12 @@ class ChatActivity : AppCompatActivity() {
                             db.messageDao().updateDeliveryStatus(messageId, 2)
                         }
                     }
+                    try { unregisterReceiver(this) } catch (_: Exception) {}
                 }
             }
 
-            registerReceiver(sentReceiver, IntentFilter(SMS_SENT_ACTION), RECEIVER_NOT_EXPORTED)
-            registerReceiver(deliveredReceiver, IntentFilter(SMS_DELIVERED_ACTION), RECEIVER_NOT_EXPORTED)
+            registerReceiver(sentReceiver, IntentFilter(sentAction), RECEIVER_NOT_EXPORTED)
+            registerReceiver(deliveredReceiver, IntentFilter(deliveredAction), RECEIVER_NOT_EXPORTED)
 
         } catch (e: Exception) {
             Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_LONG).show()

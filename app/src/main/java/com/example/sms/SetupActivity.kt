@@ -6,7 +6,6 @@ import android.widget.ArrayAdapter
 import android.widget.AutoCompleteTextView
 import android.widget.Button
 import android.widget.EditText
-import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.example.sms.crypto.KeyManager
@@ -17,13 +16,7 @@ class SetupActivity : AppCompatActivity() {
     private lateinit var spinnerCountryCode: AutoCompleteTextView
     private lateinit var etPhone: EditText
     private lateinit var btnStart: Button
-    private lateinit var tvMnemonic: TextView
-    private lateinit var btnCopyMnemonic: Button
-    private lateinit var btnConfirmBackup: Button
-    private lateinit var layoutBackup: android.widget.LinearLayout
-
     private lateinit var keyManager: KeyManager
-    private var mnemonic: String = ""
 
     private val countryCodes = arrayOf(
         "+98  Iran",
@@ -70,10 +63,6 @@ class SetupActivity : AppCompatActivity() {
         spinnerCountryCode = findViewById(R.id.spinnerCountryCode)
         etPhone = findViewById(R.id.etPhone)
         btnStart = findViewById(R.id.btnStart)
-        tvMnemonic = findViewById(R.id.tvMnemonic)
-        btnCopyMnemonic = findViewById(R.id.btnCopyMnemonic)
-        btnConfirmBackup = findViewById(R.id.btnConfirmBackup)
-        layoutBackup = findViewById(R.id.layoutBackup)
 
         val adapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, countryCodes)
         spinnerCountryCode.setAdapter(adapter)
@@ -101,47 +90,12 @@ class SetupActivity : AppCompatActivity() {
             val countryCode = if (codeIndex >= 0) countryCodeValues[codeIndex] else "+98"
             val fullPhone = "$countryCode$phone"
 
-            val (uuid, _, _) = keyManager.getOrCreateIdentity()
+            keyManager.getOrCreateIdentity()
             keyManager.saveName(name)
             keyManager.savePhoneNumber(fullPhone)
 
-            mnemonic = generateMnemonic(uuid)
-            tvMnemonic.text = mnemonic
-            layoutBackup.visibility = android.view.View.VISIBLE
-            btnStart.visibility = android.view.View.GONE
-        }
-
-        btnCopyMnemonic.setOnClickListener {
-            val clipboard = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
-            val clip = android.content.ClipData.newPlainText("E2EE Backup", mnemonic)
-            clipboard.setPrimaryClip(clip)
-            Toast.makeText(this, "Backup phrase copied", Toast.LENGTH_SHORT).show()
-        }
-
-        btnConfirmBackup.setOnClickListener {
             startActivity(Intent(this, MainActivity::class.java))
             finish()
         }
-    }
-
-    private fun generateMnemonic(uuid: String): String {
-        val words = listOf(
-            "alpha", "bravo", "charlie", "delta", "echo", "foxtrot",
-            "golf", "hotel", "india", "juliet", "kilo", "lima",
-            "mike", "november", "oscar", "papa", "quebec", "romeo",
-            "sierra", "tango", "uniform", "victor", "whiskey", "xray",
-            "yankee", "zulu", "apple", "banana", "cherry", "dragon",
-            "eagle", "falcon", "griffin", "hawk", "ivory", "jade",
-            "karma", "lemon", "mango", "nectar", "ocean", "pearl",
-            "quartz", "river", "storm", "tiger", "ultra", "viper",
-            "winter", "xenon", "yellow", "zenith"
-        )
-        val hash = uuid.hashCode()
-        val selectedWords = mutableListOf<String>()
-        for (i in 0 until 12) {
-            val index = ((hash shr (i * 2)) and 0x7FFFFFFF) % words.size
-            selectedWords.add(words[index])
-        }
-        return selectedWords.joinToString(" ")
     }
 }
