@@ -109,7 +109,8 @@ class PairActivity : AppCompatActivity() {
                 .setPrompt("Scan pairing QR code")
                 .setCameraId(0)
                 .setBeepEnabled(false)
-                .setOrientationLocked(true)
+                .setOrientationLocked(false)
+                .setCameraId(0)
             scanLauncher.launch(options)
         }
 
